@@ -1,0 +1,526 @@
+<html>
+
+<head>
+    <title>final</title>
+</head>
+
+<body style="background-color:dimgrey;">
+    <!-- 
+    drop down for all the days
+    
+    default the veiw to show all the floor
+    then allow user to clic the on the floor and seee d2 sd view of the grraphs 
+
+    have antyhor view to see oiinffect people in a a3d view
+
+    have a pie chart of ther different types of people 
+
+ -->
+    <span style="min-width: 100%;min-height: 15%;">
+        <div>day
+            <select name="days" id="days"></select>
+            <button onclick="load()">Load Day</button>
+        </div>
+
+    </span>
+    <svg width='500' height='500' id="floorView"></svg>
+    <svg width='300' height='300' id="pie"></svg>
+    <svg width='800' height='900' id="d3View"></svg>
+  
+
+    <script src="https://unpkg.com/d3-3d/build/d3-3d.min.js"></script>
+    <script src='https://d3js.org/d3.v4.min.js'></script>
+
+    <script>
+        let day = 10
+        let data;
+        flag = true
+        for (let i = 0; i <= 370; i += 10) {
+            d3.select('#days').append('option').text(i).attr("value", i);
+        }
+        function load(day) {
+            fetch('day' + day.toString() + '.json')
+                .then(response => response.json())
+                .then(jsonResponse => data = jsonResponse)
+                .then(d => threeDMaker())
+                .then(d => barChart())
+                .then(d => pieGraph())
+        }
+        function init() {
+            load(30);
+        }
+        function threeDMaker() {
+            var origin = [400, 250], scale = .8, scatter = [], xGrid = [], beta = 2.1, alpha = 0.8, key = function (d) { return d.id; }, startAngle = Math.PI / 4;
+            let yLine = []
+            var grid3d = d3._3d()
+            let scatter2 = []
+            let scatter3 = []
+            var grid3d = d3._3d()
+                .shape('GRID', 11)
+                .origin(origin)
+                .rotateY(-2.1 + startAngle)
+                .rotateX(.8 - startAngle)
+                .scale(scale);
+
+            var point3d = d3._3d()
+                .x(function (d) { return d.x; })
+                .y(function (d) { return d.y; })
+                .z(function (d) { return d.z; })
+                .origin(origin)
+                .rotateY(-2.1 + startAngle)
+                .rotateX(.8 - startAngle)
+                .scale(scale);
+
+            var yScale3d = d3._3d()
+                .shape('LINE_STRIP')
+                .origin(origin)
+                .rotateY(-2.1 + startAngle)
+                .rotateX(.8 - startAngle)
+                .scale(scale);
+            function posPointX(d) {
+                return d.projected.x;
+            }
+
+            function posPointY(d) {
+                return d.projected.y;
+            }
+            var mx, my, mouseX, mouseY;
+            svg = d3.select('#d3View').call(d3.drag().on('drag', dragged).on('start', dragStart).on('end', dragEnd)).append('g');
+            var cnt = 0;
+            console.log(data)
+            let xGriddata = []
+            for (let i = 0; i < 5; i++) {
+
+                for (let j = 0; j < 500; j += 5) {
+
+                    for (let k = 0; k < 500; k += 5) {
+
+                        if (data[i][j][k][1] == '1') {
+                            scatter.push({ x: j, y: i * 200, z: k, id: 'point_' + cnt++ });
+                        }
+                        else if (data[i][j][k][2] == '1') {
+                            scatter2.push({ x: j, y: i * 200, z: k, id: 'point_' + cnt++ });
+                        }
+                        else if (data[i][j][k][0] == '1') {
+                            scatter3.push({ x: j, y: i * 200, z: k, id: 'point_' + cnt++ });
+                        }
+                    }
+                }
+            }
+            for (let j = -50; j < 500; j += 50) {
+                console.log(j)
+                for (let k = -50; k < 500; k += 50) {
+                    console.log(k)
+                    xGriddata.push([k + 50, 4 * 200.3, j + 50])
+                }
+            }
+            console.log(grid3d(xGriddata))
+            var xGrid = svg.selectAll('path.grid').data(grid3d(xGriddata), key);
+
+            xGrid
+                .enter()
+                .append('path')
+                .attr('class', '_3d grid')
+                .merge(xGrid)
+                .attr('stroke', 'black')
+                .attr('stroke-width', 0.3)
+                .attr('fill', function (d) { return d.ccw ? 'lightgrey' : '#717171'; })
+                .attr('fill-opacity', 0.9)
+                .attr('d', grid3d.draw);
+
+            xGrid.exit().remove();
+            console.log(yLine)
+            d3.range(0, 5, 1).forEach(function (d) { yLine.push([500, d * 200.25, 500]); });
+            console.log(yLine)
+            let lineY = yScale3d([yLine])
+            var yScale = svg.selectAll('path.yScale').data(lineY);
+            yScale
+                .enter()
+                .append('path')
+                .attr('class', '_3d yScale')
+                .merge(yScale)
+                .attr('stroke', 'black')
+                .attr('stroke-width', .5)
+                .attr('d', yScale3d.draw);
+
+            yScale.exit().remove();
+            var yText = svg.selectAll('text.yText').data(lineY[0]);
+            yText
+                .enter()
+                .append('text')
+                .attr('class', '_3d yText')
+                .attr('dx', '.3em')
+                .merge(yText)
+                .each(function (d) {
+                    d.centroid = { x: d.rotated.x, y: d.rotated.y, z: d.rotated.z };
+                })
+                .attr('x', function (d) { return d.projected.x; })
+                .attr('y', function (d) { return d.projected.y; })
+                .text(function (d) { console.log(d); return 5 - (d[1] / 200.25) });
+
+            yText.exit().remove();
+            dr = point3d(scatter)
+            var points = svg.selectAll('circle').data(dr, key);
+            points
+                .enter()
+                .append('circle')
+                .attr('class', '_3d')
+                .attr('opacity', 0)
+                .attr('cx', posPointX)
+                .attr('cy', posPointY)
+                .merge(points)
+                .transition().duration(0)
+                .attr('r', 1)
+                .attr('stroke', 'red')
+                .attr('fill', 'red')
+                .attr('opacity', 1)
+                .attr('cx', posPointX)
+                .attr('cy', posPointY);
+
+            points.exit().remove();
+            let dr2;
+            dr2 = point3d(scatter2)
+            var points2 = svg.selectAll('circle').data(dr2, key);
+            points2
+                .enter()
+                .append('circle')
+                .attr('class', '_3d')
+                .attr('opacity', 0)
+                .attr('cx', posPointX)
+                .attr('cy', posPointY)
+                .merge(points2)
+                .transition().duration(0)
+                .attr('r', 1)
+                .attr('stroke', 'blue')
+                .attr('fill', 'blue')
+                .attr('opacity', 1)
+                .attr('cx', posPointX)
+                .attr('cy', posPointY);
+
+            points.exit().remove();
+
+            let dr3;
+            dr3 = point3d(scatter3)
+            var points3 = svg.selectAll('circle').data(dr3, key);
+            points3
+                .enter()
+                .append('circle')
+                .attr('class', '_3d')
+                .attr('opacity', 0)
+                .attr('cx', posPointX)
+                .attr('cy', posPointY)
+                .merge(points3)
+                .transition().duration(0)
+                .attr('r', 1.5)
+                .attr('stroke', 'yellow')
+                .attr('fill', 'yellow')
+                .attr('opacity', 1)
+                .attr('cx', posPointX)
+                .attr('cy', posPointY);
+
+            points.exit().remove();
+
+
+            console.log(data)
+            function dragStart() {
+                mx = d3.event.x;
+                my = d3.event.y;
+            }
+
+            function dragged() {
+                svg = d3.select('#d3View')
+                mouseX = mouseX || 0;
+                mouseY = mouseY || 0;
+                beta2 = (d3.event.x - mx + mouseX) * Math.PI / 230;
+                alpha2 = (d3.event.y - my + mouseY) * Math.PI / 230 * (-1);
+                console.log(beta)
+                console.log(alpha)
+                point3d.rotateY(-beta + beta2 + startAngle).rotateX(alpha + alpha2 - startAngle)(scatter)
+                point3d.rotateY(-beta + beta2 + startAngle).rotateX(alpha + alpha2 - startAngle)(scatter2)
+                point3d.rotateY(-beta + beta2 + startAngle).rotateX(alpha + alpha2 - startAngle)(scatter3)
+                dr = point3d(scatter)
+                dr2 = point3d(scatter2)
+                dr3 = point3d(scatter3)
+                grid3d.rotateY(-beta + beta2 + startAngle).rotateX(alpha + alpha2 - startAngle)(xGriddata)
+                xGrid = svg.selectAll('path.grid').data(grid3d(xGriddata), key);
+
+                xGrid
+                    .enter()
+                    .append('path')
+                    .attr('class', '_3d grid')
+                    .merge(xGrid)
+                    .attr('stroke', 'black')
+                    .attr('stroke-width', 0.1)
+                    .attr('fill', function (d) { return d.ccw ? 'lightgrey' : '#717171'; })
+                    .attr('fill-opacity', 0.7)
+                    .attr('d', grid3d.draw);
+
+                xGrid.exit().remove();
+                yScale3d.rotateY(-beta + beta2 + startAngle).rotateX(alpha + alpha2 - startAngle)([yLine]),
+                    lineY = yScale3d([yLine])
+                var yScale = svg.selectAll('path.yScale').data(lineY);
+                yScale
+                    .enter()
+                    .append('path')
+                    .attr('class', '_3d yScale')
+                    .merge(yScale)
+                    .attr('stroke', 'black')
+                    .attr('stroke-width', .5)
+                    .attr('d', yScale3d.draw);
+
+                yScale.exit().remove();
+                var yText = svg.selectAll('text.yText').data(lineY[0]);
+                yText
+                    .enter()
+                    .append('text')
+                    .attr('class', '_3d yText')
+                    .attr('dx', '.3em')
+                    .merge(yText)
+                    .each(function (d) {
+                        d.centroid = { x: d.rotated.x, y: d.rotated.y, z: d.rotated.z };
+                    })
+                    .attr('x', function (d) { return d.projected.x; })
+                    .attr('y', function (d) { return d.projected.y; })
+                    .text(function (d) { console.log(d); return 5 - ((d[1]) / 200.25) });
+
+                yText.exit().remove();
+                var points = svg.selectAll('circle').data(dr, key);
+                var points2 = svg.selectAll('circle').data(dr2, key);
+                var points3 = svg.selectAll('circle').data(dr3, key);
+                points
+                    .enter()
+                    .append('circle')
+                    .attr('class', '_3d')
+                    .attr('opacity', 0)
+                    .attr('cx', posPointX)
+                    .attr('cy', posPointY)
+                    .merge(points)
+                    .transition().duration(0)
+                    .attr('r', 1)
+                    .attr('stroke', 'red')
+                    .attr('fill', 'red')
+                    .attr('opacity', 1)
+                    .attr('cx', posPointX)
+                    .attr('cy', posPointY);
+
+                points.exit().remove();
+
+                points2
+                    .enter()
+                    .append('circle')
+                    .attr('class', '_3d')
+                    .attr('opacity', 0)
+                    .attr('cx', posPointX)
+                    .attr('cy', posPointY)
+                    .merge(points2)
+                    .transition().duration(0)
+                    .attr('r', 1)
+                    .attr('stroke', 'blue')
+                    .attr('fill', 'blue')
+                    .attr('opacity', 1)
+                    .attr('cx', posPointX)
+                    .attr('cy', posPointY);
+                points2.exit().remove();
+                points3
+                    .enter()
+                    .append('circle')
+                    .attr('class', '_3d')
+                    .attr('opacity', 0)
+                    .attr('cx', posPointX)
+                    .attr('cy', posPointY)
+                    .merge(points3)
+                    .transition().duration(0)
+                    .attr('r', 1.3)
+                    .attr('stroke', 'yellow')
+                    .attr('fill', 'yellow')
+                    .attr('opacity', 1)
+                    .attr('cx', posPointX)
+                    .attr('cy', posPointY);
+                points3.exit().remove();
+            }
+
+            function dragEnd() {
+                mouseX = d3.event.x - mx + mouseX;
+                mouseY = d3.event.y - my + mouseY;
+            }
+        }
+        function barChart() {
+            svg = d3.select('#floorView');
+            var svgWidth = 500;
+            var svgHeight = 500;
+            barchatinfo = [];
+            for (let i = 0; i < 5; i++) {
+                temp = 0
+                for (let j = 0; j < 500; j += 5) {
+
+                    for (let k = 0; k < 500; k += 5) {
+
+                        if (data[i][j][k][2] == '1') {
+                            temp++;
+                        }
+                    }
+                }
+                barchatinfo.push(temp);
+            }
+            var barPadding = 40;
+            var padding = 40;
+            var barWidth = (svgWidth / barchatinfo.length);
+
+            xScale = d3.scaleBand()
+                .domain(d3.range(1, barchatinfo.length + 1))
+                .rangeRound([padding, svgWidth + 40])
+                .paddingInner(0.1)
+                .paddingOuter(0.1);
+
+            yScale = d3.scaleLinear()
+                .domain([0, d3.max(barchatinfo, function (d) { return d; })])
+                .range([svgHeight - padding, padding]);
+            var xAxis = d3.axisBottom(xScale);
+            var yAxis = d3.axisLeft(yScale);
+            function xtext(e) {
+                // do whatever calculation you like with e here
+                return "floor: " + (e + 1).toString();
+            }
+            svg.append("g")
+                .attr("class", "axis")
+                .attr("transform", "translate(0," + (svgWidth - padding) + ")")
+                .call(xAxis);
+
+            svg.append("g")
+                .attr("class", "axis")
+                .attr("transform", "translate(" + padding + ",0)")
+                .call(yAxis);
+
+
+            var barChart = svg.selectAll("rect")
+                .data(barchatinfo)
+                .enter()
+                .append("rect")
+                .attr("y", function (d) {
+                    return yScale(d)
+                })
+                .attr("x", function (d) {
+                    return xScale(d)
+                })
+                .attr("height", function (d) {
+                    return svgHeight - padding - yScale(d);
+                })
+                .attr("width", barWidth - padding)
+                .attr("transform", function (d, i) {
+                    var translate = [barWidth * i + 60,];
+                    return "translate(" + translate + ")";
+                })
+                .on("click", function (d, i) {
+                    floorview(i);
+                    d3.event.stopPropagation();
+                });
+        }
+        function pieGraph() {
+            svg = d3.select('#pie');
+            var svgWidth = 500;
+            var svgHeight = 500;
+            sick = 0;
+            hasbeen = 0;
+            immue = 0
+            for (let i = 0; i < 5; i++) {
+
+                for (let j = 0; j < 500; j += 5) {
+
+                    for (let k = 0; k < 500; k += 5) {
+
+                        if (data[i][j][k][0] == '1') {
+                            hasbeen++;
+                        }
+                        if (data[i][j][k][1] == '1') {
+                            immue++;
+                        }
+                        if (data[i][j][k][2] == '1') {
+                            sick++;
+                        }
+                    }
+                }
+            }
+            piedata = [hasbeen, immue, sick]
+            let g = svg.append("g")
+                .attr("transform", "translate(150,120)");
+            color=['yellow','red','blue']
+            // Creating Pie generator
+            var pie = d3.pie();
+
+            // Creating arc
+            var arc = d3.arc()
+                .innerRadius(0)
+                .outerRadius(100);
+
+            // Grouping different arcs
+            var arcs = g.selectAll("arc")
+                .data(pie(piedata))
+                .enter()
+                .append("g");
+
+            // Appending path 
+            arcs.append("path")
+                .attr("fill", (data, i) => {
+                    console.log(data)
+                    console.log(d3.schemeSet3)
+                    let value = data.data;
+                    return color[i];
+                })
+                .attr("d", arc);
+            arcs.append("text")
+                .attr("transform", (d) => {
+                    return "translate(" +
+                        arc.centroid(d) + ")";
+                })
+                .text(function (d) {
+                    return d.data;
+                });
+        }
+        function floorview(i) {
+            var svgWidth = 500;
+            var svgHeight = 500;
+            svg = d3.select('#floorView');
+            svg.selectAll("*").remove();
+            temp = []
+            for (let j = 0; j < 500; j += 5) {
+
+                for (let k = 0; k < 500; k += 5) {
+
+                    if (data[i][j][k][2] == '1') {
+                        temp.push({ x: k, y: 500 - j });
+                    }
+                }
+            }
+            var x = d3.scaleLinear()
+                .domain([0, 500])
+                .range([40, svgWidth]);
+
+            // Add Y axis
+            var y = d3.scaleLinear()
+                .domain([0, 500])
+                .range([svgHeight - 40, 40]);
+            var xAxis = svg.append("g")
+                .attr("transform", "translate(0," + 460 + ")")
+                .call(d3.axisBottom(x));
+            var yAxis = svg.append("g")
+                .attr("transform", "translate(40," + 0 + ")")
+                .call(d3.axisLeft(y));
+            // Add dots
+            svg.append('g')
+                .selectAll("dot")
+                .data(temp)
+                .enter()
+                .append("circle")
+                .attr("cx", function (d) { return x(d.x); })
+                .attr("cy", function (d) { return y(d.y); })
+                .attr("r", 1.5)
+                .style("fill", "yellow")
+
+        }
+        init();
+
+
+    </script>
+</body>
+
+</html>
